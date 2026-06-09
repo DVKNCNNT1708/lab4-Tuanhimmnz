@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from enum import Enum
+from http import HTTPStatus
 from typing import Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
@@ -62,7 +63,7 @@ class SensorReadingCreate(BaseModel):
         examples=[31.5],
     )
     unit: Optional[SensorUnit] = Field(default=None, examples=["celsius"])
-    timestamp: str = Field(..., examples=["2026-05-13T08:30:00+07:00"])
+    timestamp: datetime = Field(..., examples=["2026-05-13T08:30:00+07:00"])
 
 
 class SensorReading(BaseModel):
@@ -84,6 +85,13 @@ class SensorReadingCreated(BaseModel):
 
 
 READINGS: List[Dict] = []
+
+
+def status_title(status_code: int) -> str:
+    try:
+        return HTTPStatus(status_code).phrase
+    except ValueError:
+        return "HTTP Error"
 
 
 def build_problem(
@@ -112,13 +120,13 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     else:
         problem = build_problem(
             status_code=exc.status_code,
-            title=status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error"),
+            title=status_title(exc.status_code),
             detail=str(exc.detail),
             instance=str(request.url.path),
         )
 
     problem.setdefault("status", exc.status_code)
-    problem.setdefault("title", status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error"))
+    problem.setdefault("title", status_title(exc.status_code))
     problem.setdefault("type", "about:blank")
     problem.setdefault("detail", "Request failed")
     problem.setdefault("instance", str(request.url.path))
@@ -220,7 +228,7 @@ def create_reading(payload: SensorReadingCreate, response: Response) -> SensorRe
         "metric": payload.metric.value,
         "value": payload.value,
         "unit": payload.unit.value if payload.unit else None,
-        "timestamp": payload.timestamp,
+        "timestamp": payload.timestamp.isoformat(),
         "created_at": created_at,
     }
     READINGS.append(item)

@@ -4,15 +4,17 @@ FROM python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_DEFAULT_TIMEOUT=120
 
 WORKDIR /build
 
 RUN python -m venv /opt/venv
 
 COPY requirements.txt .
+COPY vendor/wheels/ ./wheels/
 
-RUN /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN /opt/venv/bin/pip install --no-index --find-links=/build/wheels -r requirements.txt
 
 
 FROM python:3.11-slim AS runtime
@@ -22,7 +24,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/opt/venv/bin:$PATH"
 ENV APP_HOST=0.0.0.0
 ENV APP_PORT=8000
-ENV AUTH_TOKEN=local-dev-token
+ENV AUTH_TOKEN=
 
 WORKDIR /app
 
